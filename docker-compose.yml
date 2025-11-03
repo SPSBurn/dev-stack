@@ -1,0 +1,77 @@
+services:
+  # Зворотний проксі-сервер для балансування навантаження
+  reverse-proxy:
+    # Офіційний образ Traefik v3
+    image: ${DOCKER_REGISTRY}traefik
+    # Увімкнення веб-інтерфейсу та прослуховування Docker подій
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+    ports:
+      # The HTTP port
+      - "80:80"
+      # The Web UI (enabled by --api.insecure=true)
+      - "${TRAEFIK_PORT:-8080}:8080"
+    volumes:
+      # So that Traefik can listen to the Docker events
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # База даних MySQL
+  db_mysql:
+    container_name: db_mysql
+    image: ${DOCKER_REGISTRY}mysql:8.0
+    ports:
+      - "${MYSQL_PORT:-3311}:3306"  # Зовнішній порт -> внутрішній 3306
+    restart: unless-stopped
+    environment:
+      MYSQL_USER: ${MYSQL_USER:-admin}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-admin}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-app_db}
+    volumes:
+      - localMySQL:/var/lib/mysql      # Постійне сховище даних
+      - "./dump:/tmp/db"              # Папка для бекапів
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Кеш Redis
+  redis:
+    container_name: redis
+    image: ${DOCKER_REGISTRY}redis:7-alpine
+    ports:
+      - "${REDIS_PORT:-6379}:6379"  # Стандартний порт Redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - localRedis:/data              # Постійне сховище даних
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  app-network:
+    name: app-network
+    external: true
+
+volumes:
+  localMySQL:
+  localRedis:
