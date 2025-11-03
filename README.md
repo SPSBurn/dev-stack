@@ -11,17 +11,25 @@
 ## Швидкий старт
 
 ```bash
-cp .env.example .env
+cp .env.example .env  # Опціонально - для налаштування
 ./devstack up -d
 ```
+
+*Якщо .env файл не створено вручну, він створиться автоматично з дефолтними налаштуваннями*
 
 ## Команди
 
 ```bash
-./devstack up -d     # Запустити всі сервіси
+./devstack help      # Показати всі команди
+./devstack up        # Запустити всі сервіси
+./devstack up -d     # Запустити всі сервіси в фоні
 ./devstack down      # Зупинити сервіси
+./devstack stop      # Зупинити сервіси
+./devstack restart   # Перезапустити сервіси
 ./devstack status    # Статус сервісів
-./devstack logs -f   # Переглянути логи
+./devstack ps        # Статус сервісів
+./devstack logs      # Переглянути логи
+./devstack logs -f   # Переглянути логи в реальному часі
 ./devstack mysql     # Підключитися до MySQL
 ./devstack redis     # Підключитися до Redis
 ./devstack backup    # Бекап MySQL
@@ -51,7 +59,7 @@ MYSQL_PASSWORD=admin
 
 Бекапи MySQL зберігаються в папці `dump/` з датою:
 ```bash
-./backup.sh  # Створює dump/backup_20231201_143022.sql
+./devstack backup  # Створює dump/backup_20231201_143022.sql
 ```
 
 ## Підключення додатків

@@ -37,7 +37,13 @@ function docker_compose {
 }
 
 if [ $# -gt 0 ]; then
-    # Source the ".env" file so Laravel's environment variables are available...
+    # Create .env file from .env.example if it doesn't exist
+    if [ ! -f ./.env ] && [ -f ./.env.example ]; then
+        echo "Creating .env file from .env.example..."
+        cp ./.env.example ./.env
+    fi
+
+    # Source the ".env" file so environment variables are available...
     if [ -f ./.env ]; then
         source ./.env
     fi
