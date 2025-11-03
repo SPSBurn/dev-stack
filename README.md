@@ -12,18 +12,20 @@
 
 ```bash
 cp .env.example .env
-./start.sh
+./devstack up -d
 ```
 
 ## Команди
 
 ```bash
-./start.sh   # Запустити всі сервіси
-./stop.sh    # Зупинити сервіси
-./status.sh  # Статус сервісів
-./logs.sh    # Переглянути логи
-./backup.sh  # Бекап MySQL
-./clean.sh   # Зупинити + видалити всі дані
+./devstack up -d     # Запустити всі сервіси
+./devstack down      # Зупинити сервіси
+./devstack status    # Статус сервісів
+./devstack logs -f   # Переглянути логи
+./devstack mysql     # Підключитися до MySQL
+./devstack redis     # Підключитися до Redis
+./devstack backup    # Бекап MySQL
+./devstack clean     # Зупинити + видалити всі дані
 ```
 
 ## Доступ до сервісів

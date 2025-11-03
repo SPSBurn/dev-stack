@@ -1,0 +1,128 @@
+#!/usr/bin/env bash
+
+UNAMEOUT="$(uname -s)"
+
+# Verify operating system is supported...
+case "${UNAMEOUT}" in
+    Linux*)             MACHINE=linux;;
+    Darwin*)            MACHINE=mac;;
+    *)                  MACHINE="UNKNOWN"
+esac
+
+if [ "$MACHINE" == "UNKNOWN" ]; then
+    echo "Unsupported operating system [$(uname -s)]. DevStack supports macOS, Linux, and Windows (WSL2)." >&2
+    exit 1
+fi
+
+# Define environment variables...
+export APP_PORT=${APP_PORT:-80}
+export WWWGROUP=${WWWGROUP:-$(id -g)}
+export WWWUSER=${WWWUSER:-$(id -u)}
+
+# Function that outputs DevStack is not running...
+function devstack_is_not_running {
+    echo -e "\033[1;33mDevStack is not running.\033[0m" >&2
+    echo "" >&2
+    echo -e "\033[1;33mYou may start DevStack using the following commands:\033[0m './devstack up' or './devstack up -d'" >&2
+    exit 1
+}
+
+# Define Docker Compose command prefix...
+function docker_compose {
+    if docker compose &> /dev/null; then
+        docker compose "$@"
+    else
+        docker-compose "$@"
+    fi
+}
+
+if [ $# -gt 0 ]; then
+    # Source the ".env" file so Laravel's environment variables are available...
+    if [ -f ./.env ]; then
+        source ./.env
+    fi
+
+    # Initiate a Bash session within the application container...
+    if [ "$1" == "bash" ]; then
+        shift 1
+        docker_compose exec \
+            -u devstack \
+            "$@"
+
+    # Initiate a MySQL CLI terminal session within the "mysql" container...
+    elif [ "$1" == "mysql" ]; then
+        shift 1
+        docker_compose exec \
+            db_mysql \
+            bash -c 'MYSQL_PWD="$MYSQL_PASSWORD" mysql -u "$MYSQL_USER" "$MYSQL_DATABASE"'
+
+    # Initiate a Redis CLI terminal session within the "redis" container...
+    elif [ "$1" == "redis" ]; then
+        shift 1
+        docker_compose exec \
+            redis \
+            redis-cli "$@"
+
+    # Pass unknown commands to the "docker-compose" binary...
+    elif [ "$1" == "up" ]; then
+        shift 1
+        mkdir -p dump
+        docker network create app-network 2>/dev/null || true
+        docker_compose up "$@"
+
+    elif [ "$1" == "down" ]; then
+        shift 1
+        docker_compose down "$@"
+
+    elif [ "$1" == "stop" ]; then
+        shift 1
+        docker_compose stop "$@"
+
+    elif [ "$1" == "restart" ]; then
+        shift 1
+        docker_compose restart "$@"
+
+    elif [ "$1" == "logs" ]; then
+        shift 1
+        docker_compose logs "$@"
+
+    elif [ "$1" == "ps" ] || [ "$1" == "status" ]; then
+        shift 1
+        docker_compose ps "$@"
+
+    elif [ "$1" == "backup" ]; then
+        shift 1
+        mkdir -p dump
+        docker exec db_mysql mysqldump -u admin -padmin --all-databases > dump/backup_$(date +%Y%m%d_%H%M%S).sql
+        echo "Backup created: dump/backup_$(date +%Y%m%d_%H%M%S).sql"
+
+    elif [ "$1" == "clean" ]; then
+        shift 1
+        docker_compose down -v --remove-orphans "$@"
+
+    elif [ "$1" == "help" ] || [ "$1" == "-h" ] || [ "$1" == "--help" ]; then
+        echo -e "\n\033[33mUsage:\033[0m"
+        echo -e "  devstack COMMAND [options] [arguments]"
+        echo -e "\n\033[33mUnknown commands are passed to the docker-compose binary.\033[0m"
+        echo -e "\n\033[33mCommands:\033[0m"
+        echo -e "  \033[32mup\033[0m          Start the application"
+        echo -e "  \033[32mup -d\033[0m       Start the application in the background"
+        echo -e "  \033[32mdown\033[0m        Stop the application"
+        echo -e "  \033[32mstop\033[0m        Stop the application"
+        echo -e "  \033[32mrestart\033[0m     Restart the application"
+        echo -e "  \033[32mstatus\033[0m      Show the status of all containers"
+        echo -e "  \033[32mps\033[0m          Show the status of all containers"
+        echo -e "  \033[32mlogs\033[0m        Display and follow the logs"
+        echo -e "  \033[32mlogs -f\033[0m     Display and follow the logs"
+        echo -e "  \033[32mmysql\033[0m       Start a MySQL CLI session"
+        echo -e "  \033[32mredis\033[0m       Start a Redis CLI session"
+        echo -e "  \033[32mbackup\033[0m      Create a MySQL backup"
+        echo -e "  \033[32mclean\033[0m       Stop and remove all containers, networks, and volumes"
+        echo ""
+
+    else
+        docker_compose "$@"
+    fi
+else
+    docker_compose ps
+fi
